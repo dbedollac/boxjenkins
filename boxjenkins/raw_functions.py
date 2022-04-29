@@ -78,8 +78,7 @@ def AndersonD(x_array):
     """
     var_diff = []  # list fo variances with differentes lags
     for i in range(4):
-        var_diff.append(np.nanvar(np.diff(x_array,n=i)))
-
+        var_diff.append(np.nanstd(np.diff(x_array,n=i)))
     return var_diff.index(min(var_diff))
 
 def DickeyD(x_array):
