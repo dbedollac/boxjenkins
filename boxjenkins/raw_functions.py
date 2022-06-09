@@ -3,6 +3,9 @@ import numpy as np
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.stattools import acf
 from statsmodels.tsa.stattools import pacf
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.stats.weightstats import DescrStatsW
+from statsmodels.stats.diagnostic import acorr_ljungbox
 
 def BoxCox(x,l:int):
     """
@@ -145,7 +148,7 @@ def MaxSigACFlag(x_array):
 
     Parameters
     ----------
-    x_coeffs: ndarray
+    x_array: ndarray
         Array with the observed values of the time series.
 
     Returns
@@ -178,7 +181,7 @@ def MaxSigPACFlag(x_array):
 
     Parameters
     ----------
-    x_coeffs: ndarray
+    x_array: ndarray
         Array with the observed values of the time series.
 
     Returns
@@ -206,19 +209,19 @@ def MaxSigPACFlag(x_array):
 
 def GuessModel(x_array):
     """
-    This function guess the value of the parameters p and q of an ARIMA model based on the strategy developed by Box and Jenkis, which depends on the interpretation of the ACF and the PACF.
+    This function guess the value of the parameters p and q of an ARMA model based on the strategy developed by Box and Jenkis, which depends on the interpretation of the ACF and the PACF.
 
     Parameters
     ----------
-    x_coeffs: ndarray
+    x_array: ndarray
         Array with the observed values of the time series.
 
     Returns
     -------
     p: int
-        The proposed parameter for the p-parameter.
+        The proposed value for the p-parameter.
     q: int
-        The proposed parameter for the q-parameter.
+        The proposed value for the q-parameter.
     """
     max_p = MaxSigPACFlag(x_array)
     max_q = MaxSigACFlag(x_array)
@@ -252,3 +255,155 @@ def GuessModel(x_array):
             q = min_q
 
     return {'p':p,'q':q}
+
+
+def ValidateAssumptions(model_fit, significance = 0.05):
+    """
+    Given a fit of an ARIMA model, this function validate the next assumptions:
+    - Mean of residuals statistically equal to zero.
+    - Residuals described by white noise process.
+    - Roots of the lag polynomials out of the unit circle.
+    - Lag polynomials without approximately common factors.
+
+    Parameters
+    ----------
+    model_fit: object
+        ARIMAResults object from a fit of an ARIMA model using statsmodels.
+
+    Returns
+    -------
+    eval: dict
+        A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
+         - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
+         - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
+         - polynomial_roots includes the roots of the AR and MA polynomials.
+    validation: bool
+        True if all assumptions are fulfilled, False otherwise.
+    validation_list: list
+        A list of bool values to describe whether or not the model fulfill each one of the assumptions.
+    """
+    validation_list = []
+    polynomial_ar = model_fit.polynomial_ar
+    polynomial_ma = model_fit.polynomial_ma
+    residuals = model_fit.resid
+
+    #Testing residuals mean equal to 0
+    mean_test = DescrStatsW(residuals).ttest_mean()
+    mean_test = {'tstat':mean_test[0],
+                 'pvalue':mean_test[1]
+                 }
+    validation_list.append(mean_test['pvalue'] < significance)
+
+    #Testing Residuals described by white noise process
+    wn_test = acorr_ljungbox(residuals)
+    wn_test = {'lb_stat':wn_test.lb_stat.values[-1],
+               'pvalue': wn_test.lb_pvalue.values[-1],
+               'lag': len(wn_test.lb_pvalue.values)
+               }
+    validation_list.append(wn_test['pvalue'] >= significance)
+
+    #The roots of the lag polynomials are out of the unit circle by default when an ARIMA model is fitted with statsmodels.
+    validation_list.append(True)
+
+    #Testing lag polynomials without approximately common factors.
+    polynomial_roots = {'arroots': model_fit.arroots,
+                        'maroots': model_fit.maroots
+                        }
+    pol_test = ComparePolyRoots(polynomial_ar,polynomial_ma)
+    validation_list.append(not pol_test)
+
+    #Outputs
+    validation = (np.prod(np.array(validation_list)) == 1)
+    eval ={'mean_test':mean_test,'wn_test':wn_test,'polynomial_roots':polynomial_roots}
+
+    return  eval, validation, validation_list
+
+'''
+def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_rootsansformation = True, anderson_diff = False, guessmodel = True):
+    """
+    This function selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
+    - Mean of residuals statistically equal to zero.
+    - Residuals described by white noise process.
+    - Roots of the lag polynomials out of the unit circle.
+    - Lag polynomials without approximately common factors.
+    - Principle of parsimony.
+
+    This function assumes that T(x_array) ~ ARIMA(p,d,q) with a constant trend c, where T() is a Box Cox transformation.
+
+    Parameters
+    ----------
+    x_array: ndarray
+        Array with the observed values of the time series.
+    maxp: int
+        Maximum value of lags for the AR part of the model. If None, the maximum value will be the last k_lag of the PACF significantly distinct of 0. Default is None.
+    maxq: int
+        Maximum value of lags for the MA part of the model. If None, the maximum value will be the last k_lag of the ACF significantly distinct of 0. Default is None.
+    maxd: int
+        Maximum number of times that the difference operator can be applied. Default is 3.
+    boxcox_transformation: bool
+        Whether or not the time series will be transformed in order to stabilize the variance. Default is True.
+    anderson_diff: bool
+        Whether or not the criteria of Anderson will be used to propose an initial value for d. Default is False.
+    guessmodel: bool
+        Whether or not the ACF and the PACF functions will be used to propose initial values for p and q based on Box and Jenkins strategy. Default is True.
+
+    Returns
+    -------
+    boxcox_lambda: float
+        The selected lambda for the Box-Cox transformation.
+    c: float
+        Intercept for model the level fo the time series.
+    p: int
+        The selected value for the p-parameter.
+    d: int
+        The selected value for the d-parameter.
+    q: int
+        The selected value for the q-parameter.
+    model: object
+        An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
+    eval: dict
+        A dictionary with the key statistics to demonstrate the fullfillment of the mentioned assumptions:
+         - mu_satistics includes the mean of the residuals, the stat value of a t-test for mean = 0 and its p-value.
+         - white_noise includes the stat value of a Ljung-Box test, the lag used and its p-value.
+         - polynomial_roots includes the roots of the AR and MA polynomials.
+    """
+    #Variance stabilization with a Box-cox transfromation
+    if boxcox_transformation:
+        boxcox_lambda = GuerreroLambda(x_array)
+    else:
+        boxcox_lambda = 1
+    x_array_T = BoxCox(x_array,boxcox_lambda)
+
+    #Level stabilization applying the difference operator
+    if anderson_diff:
+        d = AndersonD(x_array_T)
+    else:
+        d = 0
+    x_array_T_diff = np.diff(x_array_T, n = d)
+    dickey_d = DickeyD(x_array_T_diff)
+    d = d + dickey_d
+
+    #Selecting inital values for p,q
+    if guessmodel:
+        guess = GuessModel(x_array_T_diff)
+        p = guess['p']
+        q = guess['q']
+    else:
+        p = 0
+        q = 0
+
+    #Validating assumptions and iteration of p,q values if needed
+    model = ARIMA(endog=x_array_T,
+                  order=(p,d,q),
+                  enforce_stationarity=True,
+                  enforce_invertibility=True
+                  )
+    model_fit = model.fit()
+'''
+
+
+
+
+
+
+
