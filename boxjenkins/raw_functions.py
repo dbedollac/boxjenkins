@@ -292,10 +292,13 @@ def ValidateAssumptions(model_fit, significance = 0.05):
     mean_test = {'tstat':mean_test[0],
                  'pvalue':mean_test[1]
                  }
-    validation_list.append(mean_test['pvalue'] < significance)
+    validation_list.append(mean_test['pvalue'] >= significance)
 
     #Testing Residuals described by white noise process
-    wn_test = acorr_ljungbox(residuals)
+    wn_test = acorr_ljungbox(residuals,
+                             lags=min(24,len(residuals)//5),
+                             model_df = len(polynomial_ar)-1 + len(polynomial_ma)-1
+                             )
     wn_test = {'lb_stat':wn_test.lb_stat.values[-1],
                'pvalue': wn_test.lb_pvalue.values[-1],
                'lag': len(wn_test.lb_pvalue.values)
@@ -318,7 +321,7 @@ def ValidateAssumptions(model_fit, significance = 0.05):
 
     return  eval, validation, validation_list
 
-'''
+
 def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_rootsansformation = True, anderson_diff = False, guessmodel = True):
     """
     This function selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
@@ -362,9 +365,9 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_roo
     model: object
         An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
     eval: dict
-        A dictionary with the key statistics to demonstrate the fullfillment of the mentioned assumptions:
-         - mu_satistics includes the mean of the residuals, the stat value of a t-test for mean = 0 and its p-value.
-         - white_noise includes the stat value of a Ljung-Box test, the lag used and its p-value.
+        A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
+         - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
+         - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
          - polynomial_roots includes the roots of the AR and MA polynomials.
     """
     #Variance stabilization with a Box-cox transfromation
@@ -386,23 +389,50 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_roo
     #Selecting inital values for p,q
     if guessmodel:
         guess = GuessModel(x_array_T_diff)
-        p = guess['p']
-        q = guess['q']
+        p_init = guess['p']
+        q_init = guess['q']
     else:
-        p = 0
-        q = 0
+        p_init = 0
+        q_init = 0
+
 
     #Validating assumptions and iteration of p,q values if needed
-    model = ARIMA(endog=x_array_T,
-                  order=(p,d,q),
-                  enforce_stationarity=True,
-                  enforce_invertibility=True
-                  )
-    model_fit = model.fit()
+    test_assumptions_result = False
+    if maxp == None:
+        maxp = MaxSigPACFlag(x_array_T_diff)['p_lag']
+
+    if maxq == None:
+        maxq = MaxSigACFlag(x_array_T_diff)['q_lag']
+
+    tested_models = []
+    while (test_assumptions_result == False or len(tested_models) < maxp*maxq):
+        minp_i = np.nanmax(p_init-1,0)
+        minq_i = np.nanmax(q_init-1,0)
+        maxp_i = np.nanmin(p_init+1,maxp)
+        maxq_i = np.nanmin(q_init+1,maxq)
+
+        models_to_test = [(minp_i,minq_i),(min(minp_i+1,maxp_i),minq_i),(minp_i,min(minq_i+1,maxq_i)),
+                          (min(minp_i+2,maxp_i), minq_i), (min(minp_i + 1,maxp_i), min(minq_i+1,maxq_i)), (min(minp_i,maxp_i), min(minq_i + 2,maxq_i)),
+                          (min(minp_i + 2,maxp_i), min(minq_i+1,maxq_i)), (min(minp_i + 1,maxp_i), min(minq_i + 2,maxq_i)), (min(minp_i+2,maxp_i), min(minq_i + 2,maxq_i))
+                         ]
+        models_to_test = list(set(models_to_test)-set(tested_models))
+
+        for p,q in models_to_test:
+            model = ARIMA(endog=x_array_T,
+                          order=(p,d,q),
+                          enforce_stationarity=True,
+                          enforce_invertibility=True
+                          )
+            model_fit = model.fit()
+            test_assumptions = ValidateAssumptions(model_fit, significance=0.05)
+            test_assumptions_result = test_assumptions[1]
+            tested_models.append((p,q))
+            if test_assumptions_result == True:
+                break
 '''
-
-
-
+Continuar con guardar los AIC de los modelos y seleccionar ese como nuevo pivote si ningún modelo evaluado cumplió con las condifciones.
+Luego si se llega a que todos los vecinos de un nuevo pivote ya fueron evaluados, pero aún quedan modelos por evaluar, elegir uno de los faltantes al azar (o el más chico).
+'''
 
 
 

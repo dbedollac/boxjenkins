@@ -2,6 +2,7 @@ from boxjenkins.raw_functions import *
 import pandas as pd
 from statsmodels.tsa.stattools import acf
 from statsmodels.tsa.stattools import pacf
+from statsmodels.tsa.arima.model import ARIMA
 import matplotlib.pyplot as plt
 
 # Reading data
@@ -61,3 +62,10 @@ guess_model_ipc_t_diff = GuessModel(df_inpc['ipc_t_diff'].dropna())
 print('model_ipc_t_diff',guess_model_ipc_t_diff)
 guess_model_ipc = GuessModel(df_inpc['ipc'].dropna())
 print('model_ipc',guess_model_ipc)
+
+# Testing the validation of the assumptions
+model_ipc_t_diff_fit = ARIMA(endog=df_inpc['ipc_t'],
+                             order=(guess_model_ipc_t_diff['p'],dickey_d,guess_model_ipc_t_diff['q'])
+                             ).fit()
+print(ValidateAssumptions(model_ipc_t_diff_fit, significance = 0.05))
+print('model complies',ValidateAssumptions(model_ipc_t_diff_fit, significance = 0.05)[1])
