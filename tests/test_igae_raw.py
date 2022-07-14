@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # Reading data
 df_inpc = pd.read_csv('../data/inp_guerrero.csv')
 print(df_inpc.head())
-
+'''
 # Selecting lambda with Guerrero method
 lambda_g = GuerreroLambda(df_inpc.ipc)
 print('lambda_g',lambda_g)
@@ -69,3 +69,6 @@ model_ipc_t_diff_fit = ARIMA(endog=df_inpc['ipc_t'],
                              ).fit()
 print(ValidateAssumptions(model_ipc_t_diff_fit, significance = 0.05))
 print('model complies',ValidateAssumptions(model_ipc_t_diff_fit, significance = 0.05)[1])
+'''
+#Testing the autoARIMA function
+print('test_autoARIMA',autoARIMA(df_inpc['ipc']))

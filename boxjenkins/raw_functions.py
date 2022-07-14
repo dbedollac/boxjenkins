@@ -6,6 +6,7 @@ from statsmodels.tsa.stattools import pacf
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.stats.weightstats import DescrStatsW
 from statsmodels.stats.diagnostic import acorr_ljungbox
+import itertools
 
 def BoxCox(x,l:int):
     """
@@ -86,7 +87,7 @@ def AndersonD(x_array):
         var_diff.append(np.nanstd(np.diff(x_array,n=i)))
     return var_diff.index(min(var_diff))
 
-def DickeyD(x_array):
+def DickeyD(x_array,maxd=3):
     """
     This function applies [Dickey et al., 1986], criteria to find the required value for the parameter d in an ARIMA model. States the initial value of d=0 and it applies ADF tests until the null hypothesis is rejected.
 
@@ -102,7 +103,7 @@ def DickeyD(x_array):
     """
     d = 0
     pvalue = adfuller(np.diff(x_array,n=d))[1]
-    while pvalue >= 0.05:
+    while (pvalue >= 0.05 and d<maxd):
         d+=1
         adf_t = adfuller(np.diff(x_array,n=d))
         pvalue = adf_t[1]
@@ -322,7 +323,7 @@ def ValidateAssumptions(model_fit, significance = 0.05):
     return  eval, validation, validation_list
 
 
-def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_rootsansformation = True, anderson_diff = False, guessmodel = True):
+def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation = True, anderson_diff = False, guessmodel = True):
     """
     This function selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
     - Mean of residuals statistically equal to zero.
@@ -369,6 +370,8 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_roo
          - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
          - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
          - polynomial_roots includes the roots of the AR and MA polynomials.
+    complies: bool
+        Whether or not the selected model complies with all the assumptions.
     """
     #Variance stabilization with a Box-cox transfromation
     if boxcox_transformation:
@@ -382,8 +385,9 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_roo
         d = AndersonD(x_array_T)
     else:
         d = 0
+    d = min(d,maxd)
     x_array_T_diff = np.diff(x_array_T, n = d)
-    dickey_d = DickeyD(x_array_T_diff)
+    dickey_d = DickeyD(x_array_T_diff,maxd-d)
     d = d + dickey_d
 
     #Selecting inital values for p,q
@@ -405,35 +409,78 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_trpolynomial_roo
         maxq = MaxSigACFlag(x_array_T_diff)['q_lag']
 
     tested_models = []
+    tested_models_aic = []
     while (test_assumptions_result == False or len(tested_models) < maxp*maxq):
-        minp_i = np.nanmax(p_init-1,0)
-        minq_i = np.nanmax(q_init-1,0)
-        maxp_i = np.nanmin(p_init+1,maxp)
-        maxq_i = np.nanmin(q_init+1,maxq)
+        minp_i = np.nanmax([p_init-1,0])
+        minq_i = np.nanmax([q_init-1,0])
+        maxp_i = np.nanmin([p_init+1,maxp])
+        maxq_i = np.nanmin([q_init+1,maxq])
 
         models_to_test = [(minp_i,minq_i),(min(minp_i+1,maxp_i),minq_i),(minp_i,min(minq_i+1,maxq_i)),
                           (min(minp_i+2,maxp_i), minq_i), (min(minp_i + 1,maxp_i), min(minq_i+1,maxq_i)), (min(minp_i,maxp_i), min(minq_i + 2,maxq_i)),
                           (min(minp_i + 2,maxp_i), min(minq_i+1,maxq_i)), (min(minp_i + 1,maxp_i), min(minq_i + 2,maxq_i)), (min(minp_i+2,maxp_i), min(minq_i + 2,maxq_i))
                          ]
         models_to_test = list(set(models_to_test)-set(tested_models))
+        models_to_test_aic = []
+        if len(models_to_test) > 0:
 
-        for p,q in models_to_test:
-            model = ARIMA(endog=x_array_T,
-                          order=(p,d,q),
-                          enforce_stationarity=True,
-                          enforce_invertibility=True
-                          )
-            model_fit = model.fit()
-            test_assumptions = ValidateAssumptions(model_fit, significance=0.05)
-            test_assumptions_result = test_assumptions[1]
-            tested_models.append((p,q))
-            if test_assumptions_result == True:
-                break
-'''
-Continuar con guardar los AIC de los modelos y seleccionar ese como nuevo pivote si ningún modelo evaluado cumplió con las condifciones.
-Luego si se llega a que todos los vecinos de un nuevo pivote ya fueron evaluados, pero aún quedan modelos por evaluar, elegir uno de los faltantes al azar (o el más chico).
-'''
+            for p,q in models_to_test:
+                try:
+                    model = ARIMA(endog=x_array_T,
+                                  order=(p,d,q),
+                                  enforce_stationarity=True,
+                                  enforce_invertibility=True
+                                  )
+                    model_fit = model.fit()
+                    test_assumptions = ValidateAssumptions(model_fit, significance=0.05)
+                    test_assumptions_result = test_assumptions[1]
+                    tested_models_aic.append(model_fit.aic)
+                    models_to_test_aic.append(model_fit.aic)
+                except:
+                    tested_models_aic.append(np.nan)
+                    models_to_test_aic.append(np.nan)
 
+                tested_models.append((p, q))
+                if test_assumptions_result == True:
+                    break
+            if test_assumptions_result == False:
+                model_pivot = models_to_test[models_to_test_aic.index(np.nanmin(models_to_test_aic))]
+                p_init = model_pivot[0]
+                q_init = model_pivot[1]
+        else:
+            for m in itertools.product(range(maxp+1),range(maxq+1)):
+                m_test = m in tested_models
+                if  m_test == False:
+                    p_init = m[0]
+                    q_init = m[1]
+                    break
+        #print(tested_models)
+    if test_assumptions_result == False:
+        model_params = tested_models[tested_models_aic.index(np.nanmin(tested_models_aic))]
+        p = model_params[0]
+        q = model_params[1]
+        model = ARIMA(endog=x_array_T,
+                      order=(p, d, q),
+                      enforce_stationarity=True,
+                      enforce_invertibility=True
+                      )
+        model_fit = model.fit()
+        test_assumptions = ValidateAssumptions(model_fit, significance=0.05)
+
+    try:
+        c = model_fit['const']
+    except:
+        c = 0
+
+    return {'boxcox_lambda':boxcox_lambda,
+            'c':c,
+            'p':p,
+            'd':d,
+            'q':q,
+            'model':model_fit,
+            'eval':test_assumptions[0],
+            'complies': test_assumptions[1]
+            }
 
 
 
