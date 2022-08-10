@@ -32,6 +32,30 @@ def BoxCox(x,l:int):
     else:
         return x**l
 
+def BoxCoxInv(x,l:int):
+    """
+    This function returns the inverse of a Box-Cox power transformation of the series x. The inverse transformation is defined as follows: x^(1/l) if l!=0 and exp(x) if l=0.
+
+    Parameters
+    ----------
+    x: ndarray
+        Input array. Must be positive 1-dimensional. Must not be constant.
+
+    l: int
+        Lambda to be applied in the formula of the transformation.
+
+    Returns
+    -------
+    x_t: ndarray
+        Transformed series.
+    """
+    if np.nanmin(x) <=0:
+        raise Exception('Data must be positive.')
+    if l == 0:
+        return np.exp(x)
+    else:
+        return x**(1/l)
+
 def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
     """
     This function applies Guerrero's (1993) method to select and return the lambda which minimises the coefficient of variation for subseries of x.
@@ -410,7 +434,7 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation =
 
     tested_models = []
     tested_models_aic = []
-    while (test_assumptions_result == False or len(tested_models) < maxp*maxq):
+    while (test_assumptions_result == False and len(tested_models) < maxp*maxq):
         minp_i = np.nanmax([p_init-1,0])
         minq_i = np.nanmax([q_init-1,0])
         maxp_i = np.nanmin([p_init+1,maxp])
@@ -468,7 +492,7 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation =
         test_assumptions = ValidateAssumptions(model_fit, significance=0.05)
 
     try:
-        c = model_fit['const']
+        c = model_fit.params['const']
     except:
         c = 0
 
@@ -482,5 +506,46 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation =
             'complies': test_assumptions[1]
             }
 
+def forecast(model,n_steps,alpha = 0.05):
+    """
+    This funciton receives an object from the autoARIMA function and make a prediction given a number of steps forward. It obtains a mean predicition and bounds of a confidence interval given an alpha.
 
+    Parameters
+    ----------
+    model: object
+        An object from the autoARIMA function.
+    n_steps: int
+        Number of steps to forecast forward.
+    alpha: float
+        Signficance level for the confidence interval.
+
+    Returns
+    -------
+    mean_forecast: ndarray
+        The forecast for the mean value.
+    upper_forecast: ndarray
+       The forecast for the upper bound of the confidence interval.
+    lower_forecast: ndarray
+       The forecast for the lower bound of the confidence interval.
+    """
+    l = model['boxcox_lambda']
+    forecast_init = model['model'].get_forecast(n_steps)
+    sigma = forecast_init.se_mean
+    t_forecast = forecast_init.predicted_mean
+    ci = forecast_init.conf_int(alpha)
+
+    unbiased_factor = 2 * (l - 1) / l
+    unbiased_factor = unbiased_factor * t_forecast ** -2
+    unbiased_factor = unbiased_factor * sigma ** 2
+    unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
+    if l >= 0:
+        return {'mean_forecast': unbiased_factor*BoxCoxInv(t_forecast,l),
+                'upper_forecast': unbiased_factor*BoxCoxInv(ci[ci.columns[1]],l),
+                'lower_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[0]], l)
+                }
+    else:
+        return {'mean_forecast': unbiased_factor*BoxCoxInv(t_forecast,l),
+                'upper_forecast': unbiased_factor*BoxCoxInv(ci[ci.columns[0]],l),
+                'lower_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[1]], l)
+                }
 
