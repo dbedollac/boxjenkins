@@ -7,6 +7,7 @@ from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.stats.weightstats import DescrStatsW
 from statsmodels.stats.diagnostic import acorr_ljungbox
 import itertools
+import warnings
 
 def BoxCox(x,l:int):
     """
@@ -450,6 +451,7 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation =
 
             for p,q in models_to_test:
                 try:
+                    warnings.filterwarnings("ignore")
                     model = ARIMA(endog=x_array_T,
                                   order=(p,d,q),
                                   enforce_stationarity=True,
@@ -508,7 +510,9 @@ def autoARIMA(x_array,maxp = None, maxq = None,maxd = 3, boxcox_transformation =
 
 def forecast(model,n_steps,alpha = 0.05):
     """
-    This funciton receives an object from the autoARIMA function and make a prediction given a number of steps forward. It obtains a mean predicition and bounds of a confidence interval given an alpha.
+    This function receives an object from the autoARIMA function and make a prediction given a number of steps forward.
+    It obtains a mean prediction and bounds of a confidence interval given an alpha. The predictions are computed by
+    multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by Guerrero (2009).
 
     Parameters
     ----------
@@ -534,10 +538,13 @@ def forecast(model,n_steps,alpha = 0.05):
     t_forecast = forecast_init.predicted_mean
     ci = forecast_init.conf_int(alpha)
 
-    unbiased_factor = 2 * (l - 1) / l
-    unbiased_factor = unbiased_factor * t_forecast ** -2
-    unbiased_factor = unbiased_factor * sigma ** 2
-    unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
+    if l<1:
+        unbiased_factor = 2 * (l - 1) / l
+        unbiased_factor = unbiased_factor * t_forecast ** -2
+        unbiased_factor = unbiased_factor * sigma ** 2
+        unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
+    else:
+        unbiased_factor = 1
     if l >= 0:
         return {'mean_forecast': unbiased_factor*BoxCoxInv(t_forecast,l),
                 'upper_forecast': unbiased_factor*BoxCoxInv(ci[ci.columns[1]],l),
