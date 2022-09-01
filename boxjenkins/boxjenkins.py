@@ -77,7 +77,9 @@ class autoARIMA:
         anderson_diff = self.anderson_diff
         guessmodel = self.guessmodel
 
-        # Variance stabilization with a Box-cox transfromation
+        # Variance stabilization with a Box-cox transformation
+        if np.nanmin(x_array) <= 0:
+            boxcox_transformation = False
         if boxcox_transformation:
             boxcox_lambda = GuerreroLambda(x_array)
         else:
@@ -226,7 +228,8 @@ class autoARIMA:
                 sigma = forecast_init.se_mean
                 t_forecast = forecast_init.predicted_mean
                 ci = forecast_init.conf_int(alpha)
-
+                ci_lower = np.array([i[0] for i in ci])
+                ci_upper = np.array([i[1] for i in ci])
                 if l < 1:
                     unbiased_factor = 2 * (l - 1) / l
                     unbiased_factor = unbiased_factor * t_forecast ** -2
@@ -236,13 +239,13 @@ class autoARIMA:
                     unbiased_factor = 1
                 if l >= 0:
                     return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[1]], l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[0]], l)
+                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_upper, l),
+                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_lower, l)
                             }
                 else:
                     return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[0]], l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci[ci.columns[1]], l)
+                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_lower, l),
+                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_upper, l)
                             }
 
         return model_fit_outcome()
@@ -265,7 +268,7 @@ def BoxCox(x,l:int):
     x_t: ndarray
         Transformed series.
     """
-    if np.nanmin(x) <=0:
+    if np.nanmin(x) <=0 and l != 1:
         raise Exception('Data must be positive.')
     if l == 0:
         return np.log(x)
@@ -289,7 +292,7 @@ def BoxCoxInv(x,l:int):
     x_t: ndarray
         Transformed series.
     """
-    if np.nanmin(x) <=0:
+    if np.nanmin(x) <=0 and l != 1:
         raise Exception('Data must be positive.')
     if l == 0:
         return np.exp(x)
