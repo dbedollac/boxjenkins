@@ -100,6 +100,10 @@ ENV/
 
 # mkdocs documentation
 /site
+_static/
+_templates/
+_build/
+_*
 
 # mypy
 .mypy_cache/

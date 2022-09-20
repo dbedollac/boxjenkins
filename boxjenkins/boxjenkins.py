@@ -13,53 +13,55 @@ import warnings
 
 class autoARIMA:
     """
+
     This function selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
-    - Mean of residuals statistically equal to zero.
-    - Residuals described by white noise process.
-    - Roots of the lag polynomials out of the unit circle.
-    - Lag polynomials without approximately common factors.
-    - Principle of parsimony.
+
+    * Mean of residuals statistically equal to zero.
+    * Residuals described by white noise process.
+    * Roots of the lag polynomials out of the unit circle.
+    * Lag polynomials without approximately common factors.
+    * Principle of parsimony.
 
     This function assumes that T(x_array) ~ ARIMA(p,d,q) with a constant trend c, where T() is a Box Cox transformation.
 
-    Parameters
-    ----------
-    x_array: ndarray
-        Array with the observed values of the time series.
-    maxp: int
-        Maximum value of lags for the AR part of the model. If None, the maximum value will be the last k_lag of the PACF significantly distinct of 0. Default is None.
-    maxq: int
-        Maximum value of lags for the MA part of the model. If None, the maximum value will be the last k_lag of the ACF significantly distinct of 0. Default is None.
-    maxd: int
-        Maximum number of times that the difference operator can be applied. Default is 3.
-    boxcox_transformation: bool
-        Whether or not the time series will be transformed in order to stabilize the variance. Default is True.
-    anderson_diff: bool
-        Whether or not the criteria of Anderson will be used to propose an initial value for d. Default is False.
-    guessmodel: bool
-        Whether or not the ACF and the PACF functions will be used to propose initial values for p and q based on Box and Jenkins strategy. Default is True.
+    **Parameters**
 
-    Returns
-    -------
-    boxcox_lambda: float
-        The selected lambda for the Box-Cox transformation.
-    c: float
-        Intercept for model the level fo the time series.
-    p: int
-        The selected value for the p-parameter.
-    d: int
-        The selected value for the d-parameter.
-    q: int
-        The selected value for the q-parameter.
-    model: object
-        An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
-    eval: dict
-        A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
-         - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
-         - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
-         - polynomial_roots includes the roots of the AR and MA polynomials.
-    complies: bool
-        Whether or not the selected model complies with all the assumptions.
+        x_array: ndarray
+            Array with the observed values of the time series.
+        maxp: int
+            Maximum value of lags for the AR part of the model. If None, the maximum value will be the last k_lag of the PACF significantly distinct of 0. Default is None.
+        maxq: int
+            Maximum value of lags for the MA part of the model. If None, the maximum value will be the last k_lag of the ACF significantly distinct of 0. Default is None.
+        maxd: int
+            Maximum number of times that the difference operator can be applied. Default is 3.
+        boxcox_transformation: bool
+            Whether or not the time series will be transformed in order to stabilize the variance. Default is True.
+        anderson_diff: bool
+            Whether or not the criteria of Anderson will be used to propose an initial value for d. Default is False.
+        guessmodel: bool
+            Whether or not the ACF and the PACF functions will be used to propose initial values for p and q based on Box and Jenkins strategy. Default is True.
+
+    **Returns**
+
+        boxcox_lambda: float
+            The selected lambda for the Box-Cox transformation.
+        c: float
+            Intercept for model the level fo the time series.
+        p: int
+            The selected value for the p-parameter.
+        d: int
+            The selected value for the d-parameter.
+        q: int
+            The selected value for the q-parameter.
+        model: object
+            An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
+        eval: dict
+            A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
+             - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
+             - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
+             - polynomial_roots includes the roots of the AR and MA polynomials.
+        complies: bool
+            Whether or not the selected model complies with all the assumptions.
     """
     def __init__(self,maxp = None, maxq = None,maxd = 3, boxcox_transformation = True, anderson_diff = False, guessmodel = True):
         self.maxp = maxp
@@ -70,6 +72,9 @@ class autoARIMA:
         self.guessmodel = guessmodel
 
     def fit(self,x_array):
+        """
+        Documentation for fit method
+        """
         maxp = self.maxp
         maxq = self.maxq
         maxd = self.maxd
@@ -182,6 +187,9 @@ class autoARIMA:
             c = 0
 
         class model_fit_outcome:
+            """
+            Documentation for the fit method outcome
+            """
             def __init__(self):
                 self.params = {'boxcox_lambda': boxcox_lambda,
                                 'c': c,
