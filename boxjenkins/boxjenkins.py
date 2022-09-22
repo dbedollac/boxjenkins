@@ -62,6 +62,8 @@ class autoARIMA:
              - polynomial_roots includes the roots of the AR and MA polynomials.
         complies: bool
             Whether or not the selected model complies with all the assumptions.
+
+    **Methods**
     """
     def __init__(self,maxp = None, maxq = None,maxd = 3, boxcox_transformation = True, anderson_diff = False, guessmodel = True):
         self.maxp = maxp
@@ -73,7 +75,9 @@ class autoARIMA:
 
     def fit(self,x_array):
         """
-        Documentation for fit method
+        Method Documentation
+
+        :ref:`autoARIMA_fit` to documentation fo fitted model
         """
         maxp = self.maxp
         maxq = self.maxq
@@ -186,77 +190,77 @@ class autoARIMA:
         except:
             c = 0
 
-        class model_fit_outcome:
-            """
-            Documentation for the fit method outcome
-            """
-            def __init__(self):
-                self.params = {'boxcox_lambda': boxcox_lambda,
-                                'c': c,
-                                'p': p,
-                                'd': d,
-                                'q': q
-                               }
-                self.boxcox_lambda = boxcox_lambda
-                self.c = c
-                self.p = p
-                self.d = d
-                self.q = q
-                self.model_fit = model_fit
-                self.eval = test_assumptions[0]
-                self.complies = test_assumptions[1]
-                self.fitted_values = x_array
+        return model_fit_outcome(boxcox_lambda,c,p,d,q,model_fit,test_assumptions,x_array)
 
-            def forecast(self, n_steps, alpha=0.05):
-                """
-                This function receives an object from the autoARIMA function and make a prediction given a number of steps forward.
-                It obtains a mean prediction and bounds of a confidence interval given an alpha. The predictions are computed by
-                multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by Guerrero (2009).
+class model_fit_outcome:
+    """
+    Documentation for the fit method outcome
+    """
+    def __init__(self,boxcox_lambda,c,p,d,q,model_fit,test_assumptions,x_array):
+        self.params = {'boxcox_lambda': boxcox_lambda,
+                        'c': c,
+                        'p': p,
+                        'd': d,
+                        'q': q
+                       }
+        self.boxcox_lambda = boxcox_lambda
+        self.c = c
+        self.p = p
+        self.d = d
+        self.q = q
+        self.model_fit = model_fit
+        self.eval = test_assumptions[0]
+        self.complies = test_assumptions[1]
+        self.fitted_values = x_array
 
-                Parameters
-                ----------
-                model: object
-                    An object from the autoARIMA function.
-                n_steps: int
-                    Number of steps to forecast forward.
-                alpha: float
-                    Signficance level for the confidence interval.
+    def forecast(self, n_steps, alpha=0.05):
+        """
+        This function receives an object from the autoARIMA function and make a prediction given a number of steps forward.
+        It obtains a mean prediction and bounds of a confidence interval given an alpha. The predictions are computed by
+        multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by Guerrero (2009).
 
-                Returns
-                -------
-                mean_forecast: ndarray
-                    The forecast for the mean value.
-                upper_forecast: ndarray
-                   The forecast for the upper bound of the confidence interval.
-                lower_forecast: ndarray
-                   The forecast for the lower bound of the confidence interval.
-                """
-                l = self.boxcox_lambda
-                forecast_init = model_fit.get_forecast(n_steps)
-                sigma = forecast_init.se_mean
-                t_forecast = forecast_init.predicted_mean
-                ci = forecast_init.conf_int(alpha)
-                ci_lower = np.array([i[0] for i in ci])
-                ci_upper = np.array([i[1] for i in ci])
-                if l < 1:
-                    unbiased_factor = 2 * (l - 1) / l
-                    unbiased_factor = unbiased_factor * t_forecast ** -2
-                    unbiased_factor = unbiased_factor * sigma ** 2
-                    unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
-                else:
-                    unbiased_factor = 1
-                if l >= 0:
-                    return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_upper, l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_lower, l)
-                            }
-                else:
-                    return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_lower, l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_upper, l)
-                            }
+        Parameters
+        ----------
+        model: object
+            An object from the autoARIMA function.
+        n_steps: int
+            Number of steps to forecast forward.
+        alpha: float
+            Signficance level for the confidence interval.
 
-        return model_fit_outcome()
+        Returns
+        -------
+        mean_forecast: ndarray
+            The forecast for the mean value.
+        upper_forecast: ndarray
+           The forecast for the upper bound of the confidence interval.
+        lower_forecast: ndarray
+           The forecast for the lower bound of the confidence interval.
+        """
+        l = self.boxcox_lambda
+        forecast_init = self.model_fit.get_forecast(n_steps)
+        sigma = forecast_init.se_mean
+        t_forecast = forecast_init.predicted_mean
+        ci = forecast_init.conf_int(alpha)
+        ci_lower = np.array([i[0] for i in ci])
+        ci_upper = np.array([i[1] for i in ci])
+        if l < 1:
+            unbiased_factor = 2 * (l - 1) / l
+            unbiased_factor = unbiased_factor * t_forecast ** -2
+            unbiased_factor = unbiased_factor * sigma ** 2
+            unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
+        else:
+            unbiased_factor = 1
+        if l >= 0:
+            return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
+                    'upper_forecast': unbiased_factor * BoxCoxInv(ci_upper, l),
+                    'lower_forecast': unbiased_factor * BoxCoxInv(ci_lower, l)
+                    }
+        else:
+            return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
+                    'upper_forecast': unbiased_factor * BoxCoxInv(ci_lower, l),
+                    'lower_forecast': unbiased_factor * BoxCoxInv(ci_upper, l)
+                    }
 
 
 def BoxCox(x,l:int):
