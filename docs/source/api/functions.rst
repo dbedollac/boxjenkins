@@ -1,6 +1,6 @@
-==============
+=====================
 Time Series Functions
-==============
+=====================
 
 .. autofunction:: boxjenkins.boxjenkins.BoxCox
 .. autofunction:: boxjenkins.boxjenkins.BoxCoxInv
