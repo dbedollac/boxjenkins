@@ -12,4 +12,3 @@ Time Series Functions
 .. autofunction:: boxjenkins.boxjenkins.MaxSigPACFlag
 .. autofunction:: boxjenkins.boxjenkins.GuessModel
 .. autofunction:: boxjenkins.boxjenkins.ValidateAssumptions
-.. autofunction:: boxjenkins.boxjenkins.ValidateAssumptions
