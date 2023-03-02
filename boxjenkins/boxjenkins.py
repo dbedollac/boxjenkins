@@ -91,6 +91,7 @@ class autoARIMA:
         anderson_diff = self.anderson_diff
         guessmodel = self.guessmodel
 
+        x_array = np.array(x_array)
         # Variance stabilization with a Box-cox transformation
         if np.nanmin(x_array) <= 0:
             boxcox_transformation = False
@@ -249,7 +250,7 @@ class model_fit_outcome:
     def forecast(self, n_steps, alpha=0.05):
         """
         Make a prediction given a number of steps forward. It obtains a mean prediction and bounds of a confidence interval given an alpha.
-        The predictions are computed by multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by Guerrero (2009).
+        The predictions are computed by multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by [Guerrero, 2009].
 
         **Parameters**
 
@@ -268,6 +269,10 @@ class model_fit_outcome:
            The forecast for the upper bound of the confidence interval.
         lower_forecast: ndarray
            The forecast for the lower bound of the confidence interval.
+
+        **Bibliography**
+
+        [Guerrero, 2009] Guerrero, V. M. (2009). *ANÁLISIS ESTADÍSTICO Y PRONÓSTICO DE SERIES DE TIEMPO ECONÓMICAS*. Jit Press, Ciudad de México, 3 edition.
         """
         l = self.boxcox_lambda
         forecast_init = self.model_fit.get_forecast(n_steps)
@@ -297,7 +302,8 @@ class model_fit_outcome:
 
 def BoxCox(x,l:int):
     """
-    This function **Returns** a Box-Cox power transformation of the series x. The transformation is defined as follows: x^l if l!=0 and log(x) if l=0.
+    This function returns a Box-Cox power transformation of the series x. The transformation is defined as follows:
+    x^ *lambda* if *lambda* !=0 and log(x) if *lambda* == 0.
 
     **Parameters**
 
@@ -320,7 +326,8 @@ def BoxCox(x,l:int):
 
 def BoxCoxInv(x,l:int):
     """
-    This function **Returns** the inverse of a Box-Cox power transformation of the series x. The inverse transformation is defined as follows: x^(1/l) if l!=0 and exp(x) if l=0.
+    This function returns the inverse of a Box-Cox power transformation of the series x. The inverse transformation is defined as follows:
+    x^(1/*lambda*) if *lambda* !=0 and exp(x) if *lambda* == 0.
 
     **Parameters**
 
@@ -334,16 +341,19 @@ def BoxCoxInv(x,l:int):
     x_t: ndarray
         Transformed series.
     """
-    if np.nanmin(x) <=0 and l != 1:
-        raise Exception('Data must be positive.')
-    if l == 0:
-        return np.exp(x)
-    else:
-        return x**(1/l)
+    try:
+        if np.nanmin(x) <=0 and l != 1:
+            raise Exception('Data must be positive.')
+        elif l == 0:
+            return np.exp(x)
+        else:
+            return x**(1/l)
+    except:
+        return np.nan
 
 def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
     """
-    This function applies Guerrero's (1993) method to select and return the lambda which minimises the coefficient of variation for subseries of x.
+    This function applies [Guerrero, 1993] method to select and return the lambda which minimises the coefficient of variation for subseries of x.
 
     **Parameters**
 
@@ -358,6 +368,10 @@ def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
 
     lambda: int
         Optimal lambda.
+
+    **Bibliography**
+
+    [Guerrero, 1993] Guerrero, V. M. (1993). Time-series analysis supported by power transformations. Journal of Forecasting, 12:37–48.
     """
     def f_metricsCV_per_group(x,l):
         groups = np.array_split(x,n_groups)
@@ -377,7 +391,7 @@ def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
 
 def AndersonD(x_array):
     """
-    This function applies  Anderson (1976, p. 116) criteria to find the required value for the parameter d in an ARIMA model.
+    This function applies [Anderson, 1976] criteria to find the required value for the parameter d in an ARIMA model.
 
     **Parameters**
 
@@ -388,6 +402,10 @@ def AndersonD(x_array):
 
     d: int
         Recommended value for the parameter d.
+
+    **Bibliography**
+
+    [Anderson, 1976] Anderson, O. (1976). Time series analysis and forecasting : the Box-Jenkins approach. Butterworth, London.
     """
     var_diff = []  # list fo variances with differentes lags
     for i in range(4):
@@ -396,7 +414,7 @@ def AndersonD(x_array):
 
 def DickeyD(x_array,maxd=3):
     """
-    This function applies [Dickey et al., 1986], criteria to find the required value for the parameter d in an ARIMA model. States the initial value of d=0 and it applies ADF tests until the null hypothesis is rejected.
+    This function applies [Dickey et al., 1986] criteria to find the required value for the parameter d in an ARIMA model. States the initial value of d=0 and it applies ADF tests until the null hypothesis is rejected.
 
     **Parameters**
 
@@ -407,6 +425,10 @@ def DickeyD(x_array,maxd=3):
 
     d: int
         Recommended value for the parameter d.
+
+    **Bibliography**
+
+    [Dickey et al., 1986] Dickey, D. A., Bel, W. R., and Miller, R. B. (1986). Unit roots in time series models: Tests and implications. The American Statistician, 40:1:12–26.
     """
     d = 0
     pvalue = adfuller(np.diff(x_array,n=d))[1]
@@ -418,7 +440,7 @@ def DickeyD(x_array,maxd=3):
 
 def ComparePolyRoots(x_coeffs,y_coeffs,epsilon=0.2):
     """
-    This function compares the real roots of 2 polynomials and **Returns** True if some pair of roots can be considered equal given an epsilon.
+    This function compares the real roots of 2 polynomials and returns True if some pair of roots can be considered equal given an epsilon.
 
     **Parameters**
 
@@ -426,6 +448,8 @@ def ComparePolyRoots(x_coeffs,y_coeffs,epsilon=0.2):
         Array with the coefficients of the first polynomial.
     y_coeffs: ndarray
         Array with the coefficients of the second polynomial.
+    epsilon: float
+        Error number to decide if the roots are equal. Default is 0.2.
 
     **Returns**
 
@@ -512,7 +536,7 @@ def MaxSigPACFlag(x_array):
 
 def GuessModel(x_array):
     """
-    This function guess the value of the **Parameters** p and q of an ARMA model based on the strategy developed by Box and Jenkis, which depends on the interpretation of the ACF and the PACF.
+    This function guess the value of the parameters p and q of an ARMA model based on the strategy developed by [Box and Jenkins, 1970], which depends on the interpretation of the ACF and the PACF.
 
     **Parameters**
 
@@ -525,6 +549,10 @@ def GuessModel(x_array):
         The proposed value for the p-parameter.
     q: int
         The proposed value for the q-parameter.
+
+    **Bibliography**
+
+    [Box and Jenkins, 1970] Box, G. and Jenkins, G. (1970). Time Series Analysis: Forecasting and Control. Holden-Day, San Francisco, CA.
     """
     max_p = MaxSigPACFlag(x_array)
     max_q = MaxSigACFlag(x_array)
@@ -563,10 +591,11 @@ def GuessModel(x_array):
 def ValidateAssumptions(model_fit, significance = 0.05):
     """
     Given a fit of an ARIMA model, this function validate the next assumptions:
-    - Mean of residuals statistically equal to zero.
-    - Residuals described by white noise process.
-    - Roots of the lag polynomials out of the unit circle.
-    - Lag polynomials without approximately common factors.
+
+    * Mean of residuals statistically equal to zero.
+    * Residuals described by white noise process.
+    * Roots of the lag polynomials out of the unit circle.
+    * Lag polynomials without approximately common factors.
 
     **Parameters**
 

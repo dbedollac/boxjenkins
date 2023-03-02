@@ -85,6 +85,9 @@ celerybeat-schedule
 
 # dotenv
 .env
+*.env
+.env_jupyter
+*.env_jupyter
 
 # virtualenv
 .venv
