@@ -2,10 +2,8 @@
 
 
 ```python
-<!-- hide -->
 import sys
 sys.path.append('../')
-<!-- end_hide -->
 ```
 
 box_jenkins follows a similar framework to the sklearn model API. For this minimal example, you will create an instance of the autoARIMA class and then call its **fit** and **forecast** methods.
@@ -146,6 +144,7 @@ model_fit.forecast(n_steps =10)
 ```python
 import matplotlib.pyplot as plt
 import seaborn as sns
+%matplotlib inline
 ```
 
 Plotting the mean forecast:
