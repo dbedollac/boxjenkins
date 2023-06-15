@@ -278,7 +278,7 @@ class model_fit_outcome:
         forecast_init = self.model_fit.get_forecast(n_steps)
         sigma = forecast_init.se_mean
         t_forecast = forecast_init.predicted_mean
-        ci = forecast_init.conf_int(alpha)
+        ci = forecast_init.conf_int(alpha = alpha)
         ci_lower = np.array([i[0] for i in ci])
         ci_upper = np.array([i[1] for i in ci])
         if l < 1:
