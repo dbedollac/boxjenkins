@@ -13,53 +13,55 @@ import warnings
 
 class autoARIMA:
     """
-    This function selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
-    - Mean of residuals statistically equal to zero.
-    - Residuals described by white noise process.
-    - Roots of the lag polynomials out of the unit circle.
-    - Lag polynomials without approximately common factors.
-    - Principle of parsimony.
 
-    This function assumes that T(x_array) ~ ARIMA(p,d,q) with a constant trend c, where T() is a Box Cox transformation.
+    Selects automatically an ARIMA model for a given univariate time series. The selected model will fulfill the next assumptions:
 
-    Parameters
-    ----------
-    x_array: ndarray
-        Array with the observed values of the time series.
-    maxp: int
-        Maximum value of lags for the AR part of the model. If None, the maximum value will be the last k_lag of the PACF significantly distinct of 0. Default is None.
-    maxq: int
-        Maximum value of lags for the MA part of the model. If None, the maximum value will be the last k_lag of the ACF significantly distinct of 0. Default is None.
-    maxd: int
-        Maximum number of times that the difference operator can be applied. Default is 3.
-    boxcox_transformation: bool
-        Whether or not the time series will be transformed in order to stabilize the variance. Default is True.
-    anderson_diff: bool
-        Whether or not the criteria of Anderson will be used to propose an initial value for d. Default is False.
-    guessmodel: bool
-        Whether or not the ACF and the PACF functions will be used to propose initial values for p and q based on Box and Jenkins strategy. Default is True.
+    * Mean of residuals statistically equal to zero.
+    * Residuals described by white noise process.
+    * Roots of the lag polynomials out of the unit circle.
+    * Lag polynomials without approximately common factors.
+    * Principle of parsimony.
 
-    Returns
-    -------
-    boxcox_lambda: float
-        The selected lambda for the Box-Cox transformation.
-    c: float
-        Intercept for model the level fo the time series.
-    p: int
-        The selected value for the p-parameter.
-    d: int
-        The selected value for the d-parameter.
-    q: int
-        The selected value for the q-parameter.
-    model: object
-        An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
-    eval: dict
-        A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
-         - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
-         - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
-         - polynomial_roots includes the roots of the AR and MA polynomials.
-    complies: bool
-        Whether or not the selected model complies with all the assumptions.
+    The model assumes that T(x_array) ~ ARIMA(p,d,q) with a constant trend c, where T() is a Box Cox transformation.
+
+    **Parameters**
+
+        maxp: int
+            Maximum value of lags for the AR part of the model. If None, the maximum value will be the last k_lag of the PACF significantly distinct of 0. Default is None.
+        maxq: int
+            Maximum value of lags for the MA part of the model. If None, the maximum value will be the last k_lag of the ACF significantly distinct of 0. Default is None.
+        maxd: int
+            Maximum number of times that the difference operator can be applied. Default is 3.
+        boxcox_transformation: bool
+            Whether or not the time series will be transformed in order to stabilize the variance. Default is True.
+        anderson_diff: bool
+            Whether or not the criteria of Anderson will be used to propose an initial value for d. Default is False.
+        guessmodel: bool
+            Whether or not the ACF and the PACF functions will be used to propose initial values for p and q based on Box and Jenkins strategy. Default is True.
+
+    **Returns**
+
+        boxcox_lambda: float
+            The selected lambda for the Box-Cox transformation.
+        c: float
+            Intercept for model the level fo the time series.
+        p: int
+            The selected value for the p-parameter.
+        d: int
+            The selected value for the d-parameter.
+        q: int
+            The selected value for the q-parameter.
+        model: object
+            An ARIMAResults class from the statsmodels package. The object is obtained by fitting the T(x_array) with the selected values p,d,q using statsmodels.
+        eval: dict
+            A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
+             - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
+             - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
+             - polynomial_roots includes the roots of the AR and MA polynomials.
+        complies: bool
+            Whether or not the selected model complies with all the assumptions.
+
+    **Methods**
     """
     def __init__(self,maxp = None, maxq = None,maxd = 3, boxcox_transformation = True, anderson_diff = False, guessmodel = True):
         self.maxp = maxp
@@ -70,6 +72,18 @@ class autoARIMA:
         self.guessmodel = guessmodel
 
     def fit(self,x_array):
+        """
+        Find and fit an ARIMA model for the given series.
+
+        **Parameters**
+
+        x_array: ndarray
+            Array with the observed values of the time series.
+
+        **Returns**
+
+            :ref:`autoARIMA_fit` class to hold results from fitting the selected ARIMA model.
+        """
         maxp = self.maxp
         maxq = self.maxq
         maxd = self.maxd
@@ -77,6 +91,7 @@ class autoARIMA:
         anderson_diff = self.anderson_diff
         guessmodel = self.guessmodel
 
+        x_array = np.array(x_array)
         # Variance stabilization with a Box-cox transformation
         if np.nanmin(x_array) <= 0:
             boxcox_transformation = False
@@ -181,90 +196,124 @@ class autoARIMA:
         except:
             c = 0
 
-        class model_fit_outcome:
-            def __init__(self):
-                self.params = {'boxcox_lambda': boxcox_lambda,
-                                'c': c,
-                                'p': p,
-                                'd': d,
-                                'q': q
-                               }
-                self.boxcox_lambda = boxcox_lambda
-                self.c = c
-                self.p = p
-                self.d = d
-                self.q = q
-                self.model_fit = model_fit
-                self.eval = test_assumptions[0]
-                self.complies = test_assumptions[1]
-                self.fitted_values = x_array
+        return model_fit_outcome(boxcox_lambda,c,p,d,q,model_fit,test_assumptions,x_array)
 
-            def forecast(self, n_steps, alpha=0.05):
-                """
-                This function receives an object from the autoARIMA function and make a prediction given a number of steps forward.
-                It obtains a mean prediction and bounds of a confidence interval given an alpha. The predictions are computed by
-                multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by Guerrero (2009).
+class model_fit_outcome:
+    """
+    Class to hold results from fitting an ARIMA model selected automatically with autoARIMA.
 
-                Parameters
-                ----------
-                model: object
-                    An object from the autoARIMA function.
-                n_steps: int
-                    Number of steps to forecast forward.
-                alpha: float
-                    Signficance level for the confidence interval.
+    **Attributes**
 
-                Returns
-                -------
-                mean_forecast: ndarray
-                    The forecast for the mean value.
-                upper_forecast: ndarray
-                   The forecast for the upper bound of the confidence interval.
-                lower_forecast: ndarray
-                   The forecast for the lower bound of the confidence interval.
-                """
-                l = self.boxcox_lambda
-                forecast_init = model_fit.get_forecast(n_steps)
-                sigma = forecast_init.se_mean
-                t_forecast = forecast_init.predicted_mean
-                ci = forecast_init.conf_int(alpha)
-                ci_lower = np.array([i[0] for i in ci])
-                ci_upper = np.array([i[1] for i in ci])
-                if l < 1:
-                    unbiased_factor = 2 * (l - 1) / l
-                    unbiased_factor = unbiased_factor * t_forecast ** -2
-                    unbiased_factor = unbiased_factor * sigma ** 2
-                    unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
-                else:
-                    unbiased_factor = 1
-                if l >= 0:
-                    return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_upper, l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_lower, l)
-                            }
-                else:
-                    return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
-                            'upper_forecast': unbiased_factor * BoxCoxInv(ci_lower, l),
-                            'lower_forecast': unbiased_factor * BoxCoxInv(ci_upper, l)
-                            }
+    params: dictionary
+        Dictionary with the selected *lambda* for the Box Cox transformation, the constant trend *c* and the ARIMA **Parameters** *(p,d,q)*.
+    boxcox_lambda: float
+        The selected *lambda* for the Box Cox transformation.
+    c: float
+        The constant trend *c*.
+    p: int
+        ARIMA **Parameters** *p*.
+    d: int
+        ARIMA **Parameters** *d*.
+    q: int
+        ARIMA **Parameters** *q*.
+    model_fit: class
+        Fitted model as a statsmodels class `ARIMAResults <https://www.statsmodels.org/dev/generated/statsmodels.tsa.arima.model.ARIMAResults.html>`_ .
+    eval: dict
+        A dictionary with the key statistics to demonstrate the fulfillment of the next assumptions:
+         - mean_test includes the stat value of a t-test for mean = 0 and its p-value.
+         - wn_test includes the stat value of a Ljung-Box test, the lag used and its p-value.
+         - polynomial_roots includes the roots of the AR and MA polynomials.
+    validation: bool
+        True if all assumptions are fulfilled, False otherwise.
+    x_array: ndarray
+        Array with the observed values of the time series.
 
-        return model_fit_outcome()
+    **Methods**
+    """
+    def __init__(self,boxcox_lambda,c,p,d,q,model_fit,test_assumptions,x_array):
+        self.params = {'boxcox_lambda': boxcox_lambda,
+                        'c': c,
+                        'p': p,
+                        'd': d,
+                        'q': q
+                       }
+        self.boxcox_lambda = boxcox_lambda
+        self.c = c
+        self.p = p
+        self.d = d
+        self.q = q
+        self.model_fit = model_fit
+        self.eval = test_assumptions[0]
+        self.complies = test_assumptions[1]
+        self.x_array = x_array
+
+    def forecast(self, n_steps, alpha=0.05):
+        """
+        Make a prediction given a number of steps forward. It obtains a mean prediction and bounds of a confidence interval given an alpha.
+        The predictions are computed by multiplying a factor to the original forecast in order tu get an unbiased prediction, as proposed by [Guerrero, 2009].
+
+        **Parameters**
+
+        model: object
+            An object from the autoARIMA function.
+        n_steps: int
+            Number of steps to forecast forward.
+        alpha: float
+            Signficance level for the confidence interval.
+
+        **Returns**
+
+        mean_forecast: ndarray
+            The forecast for the mean value.
+        upper_forecast: ndarray
+           The forecast for the upper bound of the confidence interval.
+        lower_forecast: ndarray
+           The forecast for the lower bound of the confidence interval.
+
+        **Bibliography**
+
+        [Guerrero, 2009] Guerrero, V. M. (2009). *ANÁLISIS ESTADÍSTICO Y PRONÓSTICO DE SERIES DE TIEMPO ECONÓMICAS*. Jit Press, Ciudad de México, 3 edition.
+        """
+        l = self.boxcox_lambda
+        forecast_init = self.model_fit.get_forecast(n_steps)
+        sigma = forecast_init.se_mean
+        t_forecast = forecast_init.predicted_mean
+        ci = forecast_init.conf_int(alpha = alpha)
+        ci_lower = np.array([i[0] for i in ci])
+        ci_upper = np.array([i[1] for i in ci])
+        if l < 1:
+            unbiased_factor = 2 * (l - 1) / l
+            unbiased_factor = unbiased_factor * t_forecast ** -2
+            unbiased_factor = unbiased_factor * sigma ** 2
+            unbiased_factor = (0.5 + (1 - unbiased_factor) ** 0.5 / 2) ** (1 / l)
+        else:
+            unbiased_factor = 1
+        if l >= 0:
+            return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
+                    'upper_forecast': unbiased_factor * BoxCoxInv(ci_upper, l),
+                    'lower_forecast': unbiased_factor * BoxCoxInv(ci_lower, l)
+                    }
+        else:
+            return {'mean_forecast': unbiased_factor * BoxCoxInv(t_forecast, l),
+                    'upper_forecast': unbiased_factor * BoxCoxInv(ci_lower, l),
+                    'lower_forecast': unbiased_factor * BoxCoxInv(ci_upper, l)
+                    }
 
 
 def BoxCox(x,l:int):
     """
-    This function returns a Box-Cox power transformation of the series x. The transformation is defined as follows: x^l if l!=0 and log(x) if l=0.
+    This function returns a Box-Cox power transformation of the series x. The transformation is defined as follows:
+    x^ *lambda* if *lambda* !=0 and log(x) if *lambda* == 0.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x: ndarray
         Input array. Must be positive 1-dimensional. Must not be constant.
-
     l: int
         Lambda to be applied in the formula of the transformation.
 
-    Returns
-    -------
+    **Returns**
+
     x_t: ndarray
         Transformed series.
     """
@@ -277,47 +326,52 @@ def BoxCox(x,l:int):
 
 def BoxCoxInv(x,l:int):
     """
-    This function returns the inverse of a Box-Cox power transformation of the series x. The inverse transformation is defined as follows: x^(1/l) if l!=0 and exp(x) if l=0.
+    This function returns the inverse of a Box-Cox power transformation of the series x. The inverse transformation is defined as follows:
+    x^(1/*lambda*) if *lambda* !=0 and exp(x) if *lambda* == 0.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x: ndarray
         Input array. Must be positive 1-dimensional. Must not be constant.
-
     l: int
         Lambda to be applied in the formula of the transformation.
 
-    Returns
-    -------
+    **Returns**
+
     x_t: ndarray
         Transformed series.
     """
-    if np.nanmin(x) <=0 and l != 1:
-        raise Exception('Data must be positive.')
-    if l == 0:
-        return np.exp(x)
-    else:
-        return x**(1/l)
+    try:
+        if np.nanmin(x) <=0 and l != 1:
+            raise Exception('Data must be positive.')
+        elif l == 0:
+            return np.exp(x)
+        else:
+            return x**(1/l)
+    except:
+        return np.nan
 
 def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
     """
-    This function applies Guerrero's (1993) method to select and return the lambda which minimises the coefficient of variation for subseries of x.
+    This function applies [Guerrero, 1993] method to select and return the lambda which minimises the coefficient of variation for subseries of x.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x: ndarray
         Input array. Must be positive 1-dimensional. Must not be constant.
-
     n_groups: int
         Seasonal periodicity of the data in integer form. Must be an integer >= 2. Default is 2.
-
     bounds: list
         Lower and upper bounds used to restrict the feasible range when solving for the value of lambda. Default [-1,1].
 
-    Returns
-    -------
+    **Returns**
+
     lambda: int
         Optimal lambda.
+
+    **Bibliography**
+
+    [Guerrero, 1993] Guerrero, V. M. (1993). Time-series analysis supported by power transformations. Journal of Forecasting, 12:37–48.
     """
     def f_metricsCV_per_group(x,l):
         groups = np.array_split(x,n_groups)
@@ -337,17 +391,21 @@ def GuerreroLambda(x_array,n_groups:int=2,bounds_list=[-1,1]):
 
 def AndersonD(x_array):
     """
-    This function applies  Anderson (1976, p. 116) criteria to find the required value for the parameter d in an ARIMA model.
+    This function applies [Anderson, 1976] criteria to find the required value for the parameter d in an ARIMA model.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x: ndarray
         Input array. Must be positive 1-dimensional. Must not be constant.
 
-    Returns
-    -------
+    **Returns**
+
     d: int
         Recommended value for the parameter d.
+
+    **Bibliography**
+
+    [Anderson, 1976] Anderson, O. (1976). Time series analysis and forecasting : the Box-Jenkins approach. Butterworth, London.
     """
     var_diff = []  # list fo variances with differentes lags
     for i in range(4):
@@ -356,17 +414,21 @@ def AndersonD(x_array):
 
 def DickeyD(x_array,maxd=3):
     """
-    This function applies [Dickey et al., 1986], criteria to find the required value for the parameter d in an ARIMA model. States the initial value of d=0 and it applies ADF tests until the null hypothesis is rejected.
+    This function applies [Dickey et al., 1986] criteria to find the required value for the parameter d in an ARIMA model. States the initial value of d=0 and it applies ADF tests until the null hypothesis is rejected.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x: ndarray
         Input array. Must be positive 1-dimensional. Must not be constant.
 
-    Returns
-    -------
+    **Returns**
+
     d: int
         Recommended value for the parameter d.
+
+    **Bibliography**
+
+    [Dickey et al., 1986] Dickey, D. A., Bel, W. R., and Miller, R. B. (1986). Unit roots in time series models: Tests and implications. The American Statistician, 40:1:12–26.
     """
     d = 0
     pvalue = adfuller(np.diff(x_array,n=d))[1]
@@ -380,16 +442,17 @@ def ComparePolyRoots(x_coeffs,y_coeffs,epsilon=0.2):
     """
     This function compares the real roots of 2 polynomials and returns True if some pair of roots can be considered equal given an epsilon.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x_coeffs: ndarray
         Array with the coefficients of the first polynomial.
-
     y_coeffs: ndarray
         Array with the coefficients of the second polynomial.
+    epsilon: float
+        Error number to decide if the roots are equal. Default is 0.2.
 
-    Returns
-    -------
+    **Returns**
+
     test: bool
         True if there is a common root, False otherwise.
     """
@@ -414,19 +477,17 @@ def MaxSigACFlag(x_array):
     """
     This function assess the lags of the ACF and find the last k_lag significantly distinct of 0 with alpha ~5%. The standard deviation is computed according to Bartlett's formula.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x_array: ndarray
         Array with the observed values of the time series.
 
-    Returns
-    -------
+    **Returns**
+
     q_lag: int
         The last k_lag significantly distinct of 0.
-
     q_tail: int
         Number of k_lags significantly distinct of 0.
-
     acf_std: list
         List of the standard deviations of lag_k when q = k-1, beginning with k = 1.
     """
@@ -447,19 +508,17 @@ def MaxSigPACFlag(x_array):
     """
     This function assess the lags of the PACF and find the last k_lag significantly distinct of 0 with alpha ~5%. The standard deviation is computed according to 1/sqrt(len(x)).
 
-    Parameters
-    ----------
+    **Parameters**
+
     x_array: ndarray
         Array with the observed values of the time series.
 
-    Returns
-    -------
+    **Returns**
+
     p_lag: int
         The last k_lag significantly distinct of 0.
-
     p_tail: int
         Number of k_lags significantly distinct of 0.
-
     pacf_std: float
         Standard deviations for every lag in the PACF.
     """
@@ -477,19 +536,23 @@ def MaxSigPACFlag(x_array):
 
 def GuessModel(x_array):
     """
-    This function guess the value of the parameters p and q of an ARMA model based on the strategy developed by Box and Jenkis, which depends on the interpretation of the ACF and the PACF.
+    This function guess the value of the parameters p and q of an ARMA model based on the strategy developed by [Box and Jenkins, 1970], which depends on the interpretation of the ACF and the PACF.
 
-    Parameters
-    ----------
+    **Parameters**
+
     x_array: ndarray
         Array with the observed values of the time series.
 
-    Returns
-    -------
+    **Returns**
+
     p: int
         The proposed value for the p-parameter.
     q: int
         The proposed value for the q-parameter.
+
+    **Bibliography**
+
+    [Box and Jenkins, 1970] Box, G. and Jenkins, G. (1970). Time Series Analysis: Forecasting and Control. Holden-Day, San Francisco, CA.
     """
     max_p = MaxSigPACFlag(x_array)
     max_q = MaxSigACFlag(x_array)
@@ -528,18 +591,19 @@ def GuessModel(x_array):
 def ValidateAssumptions(model_fit, significance = 0.05):
     """
     Given a fit of an ARIMA model, this function validate the next assumptions:
-    - Mean of residuals statistically equal to zero.
-    - Residuals described by white noise process.
-    - Roots of the lag polynomials out of the unit circle.
-    - Lag polynomials without approximately common factors.
 
-    Parameters
-    ----------
+    * Mean of residuals statistically equal to zero.
+    * Residuals described by white noise process.
+    * Roots of the lag polynomials out of the unit circle.
+    * Lag polynomials without approximately common factors.
+
+    **Parameters**
+
     model_fit: object
         ARIMAResults object from a fit of an ARIMA model using statsmodels.
 
-    Returns
-    -------
+    **Returns**
+
     eval: dict
         A dictionary with the key statistics to demonstrate the fulfillment of the mentioned assumptions:
          - mean_test includes the stat value of a t-test for mean = 0 and its p-value.

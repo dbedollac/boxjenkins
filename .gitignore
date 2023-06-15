@@ -85,6 +85,9 @@ celerybeat-schedule
 
 # dotenv
 .env
+*.env
+.env_jupyter
+*.env_jupyter
 
 # virtualenv
 .venv
@@ -100,6 +103,10 @@ ENV/
 
 # mkdocs documentation
 /site
+_static/
+_templates/
+_build/
+_*
 
 # mypy
 .mypy_cache/

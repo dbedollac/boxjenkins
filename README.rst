@@ -16,7 +16,7 @@ box_jenkins
 
 
 
-box_jenkins contains all the tools you need to define an ARIMA model for a time series based on the methodology of Box and Jenkins, moreover it includes ato find an ARIMA m following this methodology automatically.
+box_jenkins contains all the tools you need to define an ARIMA model for a time series based on the methodology proposed by Box and Jenkins, moreover it includes a function to find an ARIMA model following this methodology automatically.
 
 
 * Free software: MIT license
