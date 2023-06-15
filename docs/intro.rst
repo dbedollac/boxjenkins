@@ -7,7 +7,7 @@ box_jenkins
         :target: https://pypi.python.org/pypi/boxjenkins
 
 .. image:: https://img.shields.io/travis/dbedollac/boxjenkins.svg
-        :target: https://travis-ci.com/dbedollac/boxjenkins
+        :target: https://github.com/dbedollac/boxjenkins
 
 .. image:: https://readthedocs.org/projects/boxjenkins/badge/?version=latest
         :target: https://boxjenkins.readthedocs.io/en/latest/?version=latest
